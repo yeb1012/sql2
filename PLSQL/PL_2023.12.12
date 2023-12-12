@@ -1,0 +1,352 @@
+set serveroutput on
+
+declare
+    v_num number := &구구단몇단;
+begin
+    for i in 1..9 loop
+        dbms_output.put_line(v_num||'*'|| i||'=' ||v_num * i);
+     end loop;
+end;
+/
+
+declare
+    v_num number := &단;
+    v_count number := 1;
+begin
+    loop
+        dbms_output.put_line(v_num||'*'||v_count||'='||v_num*v_count);
+        v_count := v_count +1;
+        exit when v_count >9;
+    end loop;
+end;
+/
+declare
+    v_num number := &단;
+    v_count number := 1;
+begin    
+    while v_count<=9 loop
+    dbms_output.put_line(v_num||'*'||v_count||'='||v_num*v_count);
+    -- v_count := v_count +1;
+    
+end loop;
+end;
+/
+
+
+
+
+BEGIN
+    for i in 2..9 loop
+        for j in 2..9 loop
+            dbms_output.put_line(i||'*'||j||'='||i*j);
+        end loop;
+            dbms_output.put_line(' ');
+    end loop;
+END;
+/
+DECLARE
+v_msg varchar2(1000);
+BEGIN
+    for j in 2..9 loop
+        for i in 2..9 loop
+            v_msg :=i||' * '||j||' = '||i*j ||'  ' ;
+            dbms_output.put(RPAD(v_msg, 20, '    '));
+        end loop;
+            dbms_output.put_line(' ');
+    end loop;
+END;
+/
+
+DECLARE
+    v_dan number := 1;
+    v_num number :=1;
+BEGIN
+    LOOP
+     v_num :=1; --1부터 다시 할꺼니까 초기화 꼭!!
+        LOOP
+        IF
+        MOD(v_dan, 2) <>0 THEN --아니다
+            dbms_output.put_line(v_dan||'*'||v_num||'='||v_dan*v_num||'    ');
+        END IF;   
+        v_num := v_num +1;
+        EXIT WHEN v_num >9;
+        END LOOP;
+         v_dan := v_dan +1;
+    EXIT WHEN v_dan>9; 
+    END LOOP;
+END;
+/
+
+DECLARE
+    v_dan number := 1;
+    v_num number :=1;
+begin 
+    v_num :=1;
+    for v_dan in 1..9 loop
+        if mod(v_dan,2) = 0 then
+            continue;  --0이면 아래 실행하지 않겠다
+        end if;
+        
+        for v_num in 1..9 loop
+            dbms_output.put_line(v_dan||'*'||v_num||'='||v_dan*v_num||'    ');
+        end loop;
+    end loop;    
+end;
+/
+
+
+--MOD(가지고 있는 숫자, 나누는 수)=> 나머지
+
+
+
+--RECORD
+
+DECLARE
+    TYPE info_rec_type IS RECORD
+        (no NUMBER NOT NULL :=1,
+         name VARCHAR2(1000) := 'No Name',
+         birth DATE ); -- 필드 당 한줄 씩
+    
+    user_info info_rec_type;
+    
+BEGIN
+    dbms_output.put_line(user_info.no || ':' ||user_info.name);
+    user_info.birth := sysdate;
+    dbms_output.put_line(user_info.birth);
+END;
+/
+DECLARE
+    emp_info_rec employees%ROWTYPE;
+BEGIN
+    SELECT * 
+    INTO emp_info_rec
+    FROM employees
+    WHERE employee_id =&사원번호;
+    
+    dbms_output.put_line(emp_info_rec.employee_id);
+    dbms_output.put_line(emp_info_rec.first_name);
+
+END;
+/
+/*사원번호, 이름, 부서이름을 출력하고 싶을땐
+테이블이 하나가 아니라서 rowtype을 사용하는데 한계 있음*/
+DECLARE
+    TYPE emp_rec_type IS RECORD
+        (eid employees.employee_id%TYPE, --number
+         ename employees.first_name%TYPE, --varchar2
+         deptname departments.department_name%TYPE); --varchar2
+    emp_rec emp_rec_type;     
+BEGIN
+    SELECT e.employee_id, e.first_name, d.department_name --선언한 레코드타입의 타입과 select의 type 순서가 같으면 필드명이 달라도 출력이 된다 ->레코드 갯수와 타입일치가 중요
+    INTO emp_rec
+    FROM employees e JOIN departments d
+                     ON(e.department_id = d.department_id)
+    WHERE employee_id =&사원번호;                
+    
+    dbms_output.put_line(emp_rec.ename);
+    
+END;
+/
+
+
+--TABEL
+ 
+DECLARE
+    --1)정의
+    TYPE num_table_type IS TABLE OF NUMBER
+        INDEX BY BINARY_INTEGER;
+    --2)선언
+    num_list num_table_type;
+    
+BEGIN
+    FOR i IN 1..9 LOOP
+        num_list(i) :=2*i;
+    END LOOP;
+    
+    FOR idx IN num_list.FIRST .. num_list.LAST LOOP
+        IF num_list.EXISTS(idx) THEN
+            DBMS_OUTPUT.PUT_LINE(num_list(idx));
+        END IF;
+    END LOOP;    
+END;
+/
+declare
+    v_start number ;
+    v_end number;
+    type emp_table_type is table of employees%ROWTYPE
+        index by binary_integer;
+    emp_table emp_table_type;
+    emp_rec employees%ROWTYPE;
+begin
+
+    select employee_id
+    into v_empId
+    from employees;
+    
+    v_start := min(v_empId);
+    v_end :=max(v_empId);
+    FOR eid IN v_start .. v_end LOOP
+        select*
+        into emp_rec
+        FROM employees
+        WHERE employee_id = eid;
+        
+        emp_table(eid) := emp_rec; 
+    END LOOP;
+
+    For idx in emp_table.first .. emp_table.last loop
+    dbms_output.put_line(emp_table(idx).employee_id);
+    dbms_output.put_line(emp_table(idx).last_name);
+    end loop;
+end;
+/
+--교수님이 주신거
+
+DECLARE
+    v_min employees.employee_id%TYPE; -- 최소 사원번호
+    v_MAX employees.employee_id%TYPE; -- 최대 사원번호
+    v_result NUMBER(1,0);             -- 사원의 존재유무를 확인
+    emp_record employees%ROWTYPE;     -- Employees 테이블의 한 행에 대응
+    
+    TYPE emp_table_type IS TABLE OF emp_record%TYPE
+        INDEX BY PLS_INTEGER;
+    
+    emp_table emp_table_type;
+BEGIN
+    -- 최소 사원번호, 최대 사원번호
+    SELECT MIN(employee_id), MAX(employee_id)
+    INTO v_min, v_max
+    FROM employees;
+    
+    FOR eid IN v_min .. v_max LOOP
+        SELECT COUNT(*)
+        INTO v_result
+        FROM employees
+        WHERE employee_id = eid;
+        
+        IF v_result = 0 THEN
+            CONTINUE;
+        END IF;
+        
+        SELECT *
+        INTO emp_record
+        FROM employees
+        WHERE employee_id = eid;
+        
+        emp_table(eid) := emp_record;     
+    END LOOP;
+    
+    FOR eid IN emp_table.FIRST .. emp_table.LAST LOOP
+        IF emp_table.EXISTS(eid) THEN
+            DBMS_OUTPUT.PUT(emp_table(eid).employee_id || ', ');
+            DBMS_OUTPUT.PUT_LINE(emp_table(eid).last_name);
+        END IF;
+    END LOOP;    
+END;
+/
+--CURSOR
+
+DECLARE
+    CURSOR emp_dept_cursor IS
+    SELECT employee_id,last_name 
+    FROM employees
+    WHERE department_id = &부서번호;
+    
+    v_eid employees.employee_id%TYPE;
+    v_ename employees.last_name%TYPE;
+BEGIN
+    OPEN emp_dept_cursor; --인덱스 개념이 없다 ->제어 불가 필요하다면 처음부터 다시 해라
+    FETCH emp_dept_cursor INTO v_eid, v_ename; --select절의 datatype과 일치해야 함 (number, varchar2)
+    dbms_output.put_line(v_eid);
+    dbms_output.put_line(v_ename);
+    CLOSE emp_dept_cursor;
+END;
+/
+
+-- 많이 만나는 예외는 고유의 이름이 있다
+
+DECLARE
+    CURSOR emp_info_cursor IS
+        SELECT employee_id eid, last_name ename, hire_date hdate --별칭은 커서만..? rowtype쓸 수 있으면 다되나..?
+        FROM employees
+        where department_id = &부서번호
+        ORDER BY hire_date DESC;
+    emp_rec emp_info_cursor%ROWTYPE;    
+BEGIN
+    OPEN emp_info_cursor;
+    LOOP
+    FETCH emp_info_cursor into emp_rec;
+    EXIT WHEN emp_info_cursor%NOTFOUND; -- 커서 종료 조건
+    --EXIT WHEN emp_info_cursor%ROWCOUNT > 10; 부서번호를 60주면 반환되는 갯수가 4개 뿐이라 로우카운트를 10으로 주면 마지막행을 계속  반복해서 무한루프 돈다
+    --EXIT WHEN emp_info_cursor%NOTFOUND OR emp_info_cursor%ROWCOUNT > 10; or조건으로 둘 중 하나만 만족할때 종료하도록 줘도 괜찮은
+    DBMS_OUTPUT.PUT_LINE(emp_info_cursor%ROWCOUNT);
+    DBMS_OUTPUT.PUT_LINE(emp_rec.eid ||', '||emp_rec.ename ||', '||emp_rec.hdate );
+    END LOOP;
+    if emp_info_cursor%ROWCOUNT =0 then
+    DBMS_OUTPUT.PUT_LINE('커서의 데이터는 존재 x');
+    end if;
+    --DBMS_OUTPUT.PUT_LINE(emp_info_cursor%ROWCOUNT); 커서의 총 데이터 숫자 이게 만약 0이면 fetch가 정사적으로 나에게 돌려준 데이터가 없다
+    CLOSE emp_info_cursor;
+END;
+/
+
+--1) 모든 사원의 사원번호, 이름, 부서이름 출력
+
+DECLARE
+    CURSOR emp_info_cursor IS
+        SELECT employee_id eid, last_name ename, department_name dname
+        FROM employees e LEFT JOIN departments d
+                         ON(e.department_id = d.department_id);               
+     emp_rec emp_info_cursor%ROWTYPE;    
+BEGIN
+    OPEN emp_info_cursor;
+    LOOP
+    FETCH emp_info_cursor into emp_rec;
+    
+    EXIT WHEN emp_info_cursor%NOTFOUND; 
+    dbms_output.put(emp_rec.eid);
+    dbms_output.put(emp_rec.ename||',  ');
+    dbms_output.put_line(emp_rec.dname);
+    END LOOP;
+    CLOSE emp_info_cursor;
+END;
+/
+
+--2)부서 번호가 50이거나 80인 사원들의 사원이름, 급여, 연봉 출력
+--급여 * 12 + (NVL(급여, 0)*NVL(commission, 0) *12))
+DECLARE
+     CURSOR emp_info_cursor IS
+        SELECT last_name, salary, salary * 12 + (NVL(salary, 0)*NVL(commission_pct, 0) *12) as annual
+        FROM employees
+        WHERE department_id = 50
+        OR department_id=80; -- OR도 되는데 IN쓰자 where department_id in(50,80)
+     emp_rec emp_info_cursor%ROWTYPE;
+BEGIN
+    IF NOT emp_info_cursor%ISOPEN THEN --open 되었으면 true
+    OPEN emp_info_cursor;
+    END IF;
+    LOOP
+    FETCH emp_info_cursor into emp_rec;
+    EXIT WHEN emp_info_cursor%NOTFOUND;
+    dbms_output.put(emp_rec.last_name);
+    dbms_output.put(emp_rec.salary);
+    dbms_output.put_line(emp_rec.annual);
+    END LOOP;
+END;
+/
+/*
+declare
+ v_edi
+ v_sal
+ v_comm
+ v_anuual v_comm%type
+begin
+    LOOP
+    FETCH emp_cursor INTO v_eid, v_sal, v_comm;
+    EXIT WHEN emp_cursor%NOTFOUND;
+    v_annual := (NVL(salary, 0)*NVL(commission_pct, 0) *12);
+    END LOOP;
+*/    
+
+--변수로 인식하면 type속성 사용하면된다 
+--table, view, cursor만 row타입 

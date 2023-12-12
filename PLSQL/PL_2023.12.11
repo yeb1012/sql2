@@ -1,0 +1,411 @@
+set serveroutput on
+
+DECLARE
+    v_eid NUMBER;
+    v_ename employees.first_name%TYPE;
+    v_job VARCHAR2(1000);
+BEGIN
+    SELECT employee_id, first_name, job_id
+    INTO v_eid, v_ename, v_job
+    FROM employees
+    WHERE employee_id = 100;
+    
+    dbms_output.put_line('사원번호:'||v_eid);
+    dbms_output.put_line('사원이름:'||v_ename);
+    dbms_output.put_line('업무:'||v_job);
+
+END;
+/
+
+
+
+DECLARE
+    v_eid employees.employee_id%TYPE := &사원번호;
+    v_ename employees.last_name%TYPE;
+BEGIN
+    SELECT first_name||','||last_name
+    into v_ename
+    FROM employees
+    WHERE employee_id = v_eid;
+    
+    dbms_output.put_line('사원번호:'||v_eid);
+    dbms_output.put_line('사원이름:'||v_ename);
+END;
+/
+
+--1)특정 사원의 매니저에 해당하는 사원번호를 출력(특정사원은 치환변수를 사용해서 입력)
+DECLARE
+  
+    v_emanage employees.manager_id%TYPE;
+BEGIN
+    select manager_id
+    into v_emanage
+    from employees
+    where employee_id =&사원번호;
+    
+  
+    dbms_output.put_line('매니저번호:'||v_emanage);
+END;
+/
+--insert, update
+DECLARE
+    v_deptno departments.department_id%TYPE;
+    v_comm employees.commission_pct%TYPE :=0.1;
+BEGIN
+    SELECT department_id
+    INTO v_deptno
+    FROM employees
+    WHERE employee_id = &사원번호;
+     
+    INSERT INTO employees(employee_id, last_name, email, hire_date, job_id, department_id)
+    VALUES(1000,'Hong','Hkd@gogle.com', sysdate, 'IT_PROG', v_deptno);
+    dbms_output.put_line('등록결과:'|| SQL%ROWCOUNT);
+    UPDATE employees
+    SET salary = (NVL(salary,0) + 10000) *v_comm
+    WHERE employee_id = 1000;
+    
+     dbms_output.put_line('수정결과:'|| SQL%ROWCOUNT);
+END;
+/
+rollback;
+select * from employees where employee_id = 1000;
+
+BEGIN
+    DELETE FROM employees
+    WHERE employee_id = &사원번호;
+    
+    IF SQL%ROWCOUNT =0  THEN
+        dbms_output.put_line('해당 사원은 존재하지 않음!!');
+        END IF;
+END;
+/
+rollback;
+
+
+--1)사원번호를 입력할 경우 사원번호, 사원이름, 부서이름을 출력하는 pl/sql을 작성하시오.
+-- 사워번호는 치환변수를 통해 입력받는다
+declare 
+    v_eid employees.employee_id%TYPE :=&사원번호;
+    v_ename employees.last_name%TYPE;
+    v_dept departments.department_id%TYPE;
+    v_deptname departments.department_name%TYPE;
+BEGIN
+    select employee_id, last_name, department_id
+    into v_eid, v_ename, v_dept
+    from employees
+    where employee_id =v_eid;
+    
+    select department_name
+    into v_deptname
+    from departments
+    where department_id = v_dept;
+    
+END;
+/
+
+/*2)사원번호를 입력할 경우, 사원이름, 급여, 연봉을 출력하는 pl/sql을 작성핫오
+사원번호는 치환변소를 통해 입력받고 연봉은 (급여 * 12 + (NVL(급여, 0)*NVL(commission, 0) *12))*/
+declare
+    v_ename employees.last_name%TYPE;
+    v_salary employees.salary%TYPE;
+    v_annual NUMBER;
+BEGIN 
+ select last_name, salary, (salary * 12 + (NVL(salary, 0)*NVL(commission_pct, 0) *12))
+ into v_ename, v_salary, v_annual
+ from employees
+ where employee_id =&사원번호;
+ 
+END;
+/
+ 
+-- 기본 if문
+BEGIN
+    DELETE FROM employees
+    WHERE employee_id = &사원번호;
+    
+    IF SQL%ROWCOUNT = 0  THEN
+        DBMS_OUTPUT.PUT_LINE('정상정적으로 실행되지 않음');
+        DBMS_OUTPUT.PUT_LINE('해당사원 존재하지않음');
+    END IF;
+ END;
+ /
+ --if ~ else문
+ DECLARE
+  v_count NUMBER;
+ BEGIN
+    SELECT COUNT(employee_id)
+    INTO v_count
+    FROM employees
+    WHERE manager_id = &eid;
+    
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('일반사원');
+    ELSE
+       DBMS_OUTPUT.PUT_LINE('직책높은사원');
+    END IF;    
+ END;
+ /
+ 
+ --if ~ elsif ~ else
+ DECLARE
+  v_hdate NUMBER;
+ BEGIN
+    SELECT TRUNC(MONTHS_BETWEEN(sysdate, hire_date)/12)
+    INTO v_hdate
+    FROM employees
+    WHERE employee_id = &사원번호;
+    
+    IF v_hdate<5 THEN --입사 5년미만
+        DBMS_OUTPUT.PUT_LINE('5년 미만');
+    ELSIF v_hdate<10 THEN -- 5년이상 10년미만
+       DBMS_OUTPUT.PUT_LINE('10년 미만');
+    ELSIF v_hdate<15 THEN -- 10년이상 15년미만
+       DBMS_OUTPUT.PUT_LINE('15년 미만');
+    ELSIF v_hdate<20 THEN --15년이상 20년미만
+       DBMS_OUTPUT.PUT_LINE('20년 미만');
+     ElSE   --20년이상
+     DBMS_OUTPUT.PUT_LINE('20년 이후');
+    END IF;   
+ END;
+ /
+ 
+ /* 사원번호를 입력할 경우 입사이링 2005년 이후(포함)이면 'New employee'출력
+                                                        이전이면 'Career employee'출력
+  --rr yy :년도를 두자리만 입력받을때*/
+  --1)날짜 그대로 비교
+  DECLARE
+  v_hiredate date;
+  begin
+  select hire_date
+  into v_hiredate
+  from employees
+ where employee_id = &사원번호;
+ 
+  if v_hiredate >= TO_DATE('2005-01-01','yyyy-MM-dd') then
+  dbms_output.put_line('New employee');
+  else
+  dbms_output.put_line('Carrer employee');
+  end if;
+end;
+/
+  --2)년도만 비교
+  declare
+  v_hiredate char(4 char);
+  begin
+  select to_char(hire_date,'yyyy')
+  into v_hiredate
+  from employees
+ where employee_id = &사원번호;
+ 
+  if v_hiredate>='2005' then
+  dbms_output.put_line('New employee');
+  else
+  dbms_output.put_line('Carrer employee');
+  end if;
+end;
+/
+
+/* 사원번호를 입력할 경우 입사이링 2005년 이후(포함)이면 'New employee'출력
+                                                        이전이면 'Career employee'출력
+  단, dbms_output.put_line()코드 상 한번만 작성*/
+  
+  declare
+  v_hiredate char(4 char);
+  v_word varchar2(50);
+  begin
+  select to_char(hire_date,'yyyy')
+  into v_hiredate
+  from employees
+ where employee_id = &사원번호;
+ if v_hiredate>='2005' then
+ v_word := 'New';
+ else
+ v_word:='Old';
+ end if;
+ dbms_output.put_line(v_word);
+ /*declare에 초기값으로 old주고나면 if문 하나만 쓰면 됨
+  v_hiredate char(4 char);
+  v_word varchar2(50)='Old'
+  주고나면
+  if v_hiredate>='2005' then
+ v_word := 'New';
+ end if;*/
+  end;
+/
+
+/* 5000이하  -> 20%인상
+10000이하  -> 15%인상
+15000이하  -> 10%인상
+나머진 급여인상 x
+사원번호를 입력하면 사원이름, 급여, 인상된 급여가 췰력되도록 생성*/
+declare
+v_ename employees.last_name%TYPE;
+v_sal employees.salary%TYPE;
+v_word number;
+BEGIN
+select last_name, salary
+into v_ename, v_sal
+from employees
+where employee_id = &사원번호;
+
+if v_sal<=5000 then
+v_word := v_sal*1.2;
+elsif v_sal<=10000 then
+v_word := v_sal*1.15;
+elsif v_sal<=15000 then
+v_word := v_sal*1.1;
+else 
+v_word:=v_sal;
+end if;
+end;
+/
+
+declare
+v_ename employees.last_name%TYPE;
+v_sal employees.salary%TYPE;
+v_raise number:=0;
+begin
+    select last_name, salary
+    into v_ename, v_sal
+    from employees
+    where employee_id = &사원번호;
+        if v_sal <=5000 then
+        v_raise:=20;
+        elsif v_sal <=10000 then
+        v_raise:=15;
+        elsif v_sal <=15000 then
+        v_raise:=10;
+        end if;
+    dbms_output.put_line('사원이름'||v_ename);
+    dbms_output.put_line('사원급여'||v_sal);
+    dbms_output.put_line('인상급여'||(v_sal*(1+v_raise/100)));
+end;
+/
+
+--1에서 10까지 정수값을 더한 결과를 출력
+
+ declare
+ v_num NUMBER(2,0):=1; -- 1~10;
+ v_sum NUMBER(2,0):=0; --더한 결과
+ begin
+    loop
+        v_sum := v_sum + v_num;
+        v_num:= v_num + 1;
+        --exit when v_num = 11;
+        exit when v_num < 10;
+
+        dbms_output.put_line('루프도는 동안:'||v_sum);
+    end loop;
+    dbms_output.put_line(v_sum);
+ end;   
+ / 
+ 
+declare
+ v_num NUMBER(2,0):=1; -- 1~10;
+ v_sum NUMBER(2,0):=0; --더한 결과
+ begin
+    while v_num<=10
+    loop
+        v_sum := v_sum + v_num;
+        v_num:= v_num + 1;
+       
+        dbms_output.put_line('루프도는 동안:'||v_sum);
+    end loop;
+    dbms_output.put_line(v_sum);
+ end;   
+ --formd에 기본 오름차 정령
+ 
+
+ --for
+ declare
+    v_sum number(2,0) := 0;
+ begin
+    for i in  1..10 loop
+    v_sum := v_sum+ i;
+ end loop;
+ dbms_output.put_line(v_sum);
+
+ end;
+ /
+ 
+ 
+ --다음과 같이 출력되되록 하시오
+ declare
+  v_star varchar2(10) := '*';
+  v_sum varchar2(100):='';
+  v_count number :=1;
+ begin
+ loop
+  v_sum := v_sum || v_star;
+  v_count :=v_count+1;
+      dbms_output.put_line('기본'||v_sum);
+  exit when v_count>5;
+ end loop;
+ end;
+ /
+ 
+ declare
+  v_star varchar2(10) := '*';
+  v_sum varchar2(100):='';
+  v_count number :=1;
+  begin
+  while v_count<=5 LOOP
+  v_sum := v_sum || v_star;
+  v_count :=v_count+1;
+      dbms_output.put_line('while'||v_sum);
+ end loop;
+end;
+/
+ declare
+  v_star varchar2(10) := '*';
+  v_sum varchar2(100):='';
+  v_count number :=1;
+  begin
+  for i in 1..5 loop
+  v_sum := v_sum || v_star;
+  v_count :=v_count+1;
+      dbms_output.put_line('for'||v_sum);
+ end loop;
+end;
+/
+--length를 이용하면 count 변수가 필요 없음다
+declare
+v_star VARCHAR2(6 char) :='*';
+begin
+    while length(v_star) <=5 loop
+    dbms_output.put_line(v_star);
+    v_star := v_star || '*';
+    end loop;
+ end;
+ /
+ 
+ 
+begin
+for i in 1..5 loop
+    for j in 1.. i loop --for과 in사이의 i는 readonly임 값변경 안됨
+    dbms_output.put('*');
+   end loop;
+   dbms_output.put_line('');
+end loop;
+
+end;
+/
+
+DECLARE
+    v_line number(1,0) := 1;
+    v_star number(1,0) := 1;
+BEGIN
+    LOOP
+        v_star:=1;
+        LOOP
+            dbms_output.put('*');
+            v_star := v_star + 1;
+            exit when v_star > v_line;
+       END LOOP;
+       dbms_output.put_line(' ');
+       v_line := v_line + 1;
+       exit when v_line > 5;
+    END LOOP;
+END;
+/
+        
