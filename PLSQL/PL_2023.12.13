@@ -1,0 +1,446 @@
+set SERVEROUTPUT on
+--커서 for루프
+declare
+    cursor emp_cursor is
+        select employee_id, last_name, job_id
+        from employees
+        where department_id =&부서번호;
+        
+BEGIN
+    for emp_rec in emp_cursor loop
+    dbms_output.put(emp_cursor%ROWCOUNT);
+    dbms_output.put(',  '||emp_rec.employee_id);
+    dbms_output.put(',  '||emp_rec.last_name);
+    dbms_output.put_line(',  '||emp_rec.job_id);
+    end loop;
+     --dbms_output.put(emp_cursor%ROWCOUNT); --end loop후에는 커서가 종료된 상태라 아무 속성도 접근 x end loop후는 커서도 같이 종료된 상태다
+END;
+/
+
+
+--커서 기본루프 ( for이랑 둘다 알아두자)
+
+BEGIN
+    FOR emp_rec IN (SELECT employee_id, last_name
+                    FROM employees
+                    WHERE department_id = &부서번호) LOOP
+  --서브쿼리를 사용할 때는 ROWCOUNT 같은 속성을 사용할 수 X
+        dbms_output.put(emp_rec.employee_id||',  ');            
+        dbms_output.put_line(emp_rec.last_name);            
+    END LOOP;                    
+END;
+/
+
+--서브쿼리 기본커서에선 사용이 안된다...? 
+
+--1)모든 사원의 사원번호, 이름, 부서이름 출력
+DECLARE
+CURSOR emp_cursor IS
+(SELECT employee_id, last_name, department_name
+FROM employees e left join departments d
+on(e.department_id = d.department_id)  );
+BEGIN
+    FOR emp_rec IN emp_cursor  LOOP
+        dbms_output.put(emp_rec.employee_id||',  ');            
+        dbms_output.put(emp_rec.last_name||',  ');
+        dbms_output.put_line(emp_rec.department_name);
+    END LOOP;      
+END;
+/
+--2)부서번호가 50이거나 80인 사원들의 사원이름, 급여, 연봉 출력
+DECLARE
+CURSOR emp_cursor is
+(SELECT employee_id, last_name, salary, salary * 12 + (NVL(salary, 0)*NVL(commission_pct, 0) *12) as annual
+                    FROM employees
+                    WHERE department_id IN (50, 80));
+BEGIN
+    FOR emp_rec IN emp_cursor LOOP
+    dbms_output.put(emp_rec.employee_id||',  ');            
+    dbms_output.put(emp_rec.salary||',  ');
+    dbms_output.put_line(emp_rec.annual);
+    END LOOP;
+END;
+/
+
+declare
+    CURSOR emp_cursor
+    (p_deptno NUMBER) IS
+    SELECT last_name, hire_date
+    FROM employees
+    WHERE department_id = p_deptno;
+    
+    emp_info emp_cursor%ROWTYPE;
+begin
+    OPEN emp_cursor(60); --오픈할때만 매개변수 넘겨주면 된다
+    
+    FETCH emp_cursor INTO emp_info;
+    DBMS_OUTPUT.PUT_LINE('emp_info.last_name');
+     
+    --OPEN emp_cursor(80); 
+    CLOSE emp_cursor;
+
+end;
+/
+
+ --현재 존재하는 모든 부서의 각 소속사원을 출력하고 없는 경우 현재 소속사원이 없다라고 출력
+ --format
+ /*
+ ==부서명 : 부서 풀넴
+ 1.사원번호, 사원이름, 입사일, 업무
+ 1.사원번호, 사원이름, 입사일, 업무
+.
+.
+.
+커서 두개 사용
+루프문도 두개 사용
+ */
+ --emp정보 커서, depart정보 커서 만들고
+DECLARE
+      CURSOR emp_cursor --안쪽 루프 정보 없을때도 있으니까 이땐 for루프 사용하면 안된다
+      (p_dept varchar2) IS
+      SELECT employee_id, last_name, hire_date, job_id
+      FROM employees
+      WHERE department_id = p_dept;
+      
+      emp_rec emp_cursor%ROWTYPE;
+      
+      CURSOR depart_cursor IS
+      SELECT department_name, department_id
+      FROM departments;
+      
+      depart_rec depart_cursor%ROWTYPE;
+BEGIN
+    FOR depart_rec IN depart_cursor LOOP
+        DBMS_OUTPUT.PUT_LINE('==부서명 '||depart_rec.department_name);
+        OPEN emp_cursor(depart_rec.department_id);
+        LOOP
+        FETCH emp_cursor INTO emp_rec;
+        EXIT WHEN emp_cursor%NOTFOUND;
+        dbms_output.put(emp_cursor%ROWCOUNT);
+        DBMS_OUTPUT.PUT(',  '||emp_rec.employee_id);
+        DBMS_OUTPUT.PUT(',  '||emp_rec.last_name);
+        DBMS_OUTPUT.PUT_LINE(',  '||emp_rec.job_id);
+        END LOOP;
+        IF emp_cursor%ROWCOUNT = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('현재 소속사원이 없습니다');
+        END IF;
+    CLOSE emp_cursor;
+    END LOOP;    
+ END;
+ /
+ 
+ DECLARE
+      CURSOR emp_cursor --안쪽 루프 정보 없을때도 있으니까 이땐 for루프 사용하면 안된다
+      (p_dept varchar2) IS
+      SELECT employee_id, last_name, hire_date, job_id
+      FROM employees
+      WHERE department_id = p_dept;
+BEGIN
+    FOr emp_Rec IN emp_cursor(60) LOOP --소속사원이 없는 부서의 정보가 나오지 않을 것이다
+    dbms_output.put(emp_cursor%ROWCOUNT);
+        DBMS_OUTPUT.PUT(',  '||emp_rec.employee_id);
+        DBMS_OUTPUT.PUT(',  '||emp_rec.last_name);
+        DBMS_OUTPUT.PUT_LINE(',  '||emp_rec.job_id);
+    END LOOP;
+END;
+/
+
+-- FOR UPDATE, WHERE CURRENT OF
+DECLARE
+    CURSOR sal_info_cursor IS
+        SELECT salary, commission_pct
+        FROM employees
+        WHERE department_id = 60
+        FOR UPDATE OF salary, commission_pct NOWAIT;
+BEGIN
+    FOR sal_info IN sal_info_cursor LOOP
+        IF sal_info.commission_pct IS NULL THEN
+            UPDATE employees
+            SET salary = sal_info.salary * 1.1
+            WHERE CURRENT OF sal_info_cursor;
+        ELSE
+            UPDATE employees
+            SET salary = sal_info.salary + sal_info.salary * sal_info.commission_pct
+            WHERE CURRENT OF sal_info_cursor;
+        END IF;
+        DBMS_OUTPUT.PUT_LINE(',  '||sal_info.salary);
+    END LOOP;
+END;
+/
+
+--예외사항
+
+--1)이미 정의되어있고 이름도 존재하는 예외 사항 (2번 상황보다 상대적으로 적다)
+DECLARE
+    v_ename employees.last_name%TYPE;
+BEGIN
+    SELECT last_name
+    INTO v_ename
+    FROM employees
+    WHERE department_id =&부서번호; --여기서 오류가 나면 아래dbms거치지 않고 바로 exeption으로 간다
+    
+    DBMS_OUTPUT.PUT_LINE(v_ename);
+EXCEPTION --begin이 끝나는 절 다음에 써준다
+    WHEN  NO_DATA_FOUND THEN
+    DBMS_OUTPUT.PUT_LINE('해당 부서에 속한 사원이 없습니다');
+    WHEN TOO_MANY_ROWS THEN
+    DBMS_OUTPUT.PUT_LINE('해당 부서에는 여러명의 사원이 존재합니다');
+END; --예외는 한건만 처리, 예외가 여러개 써 있어도 하나 일단 처리되면 바로 종료
+/
+
+--2)이미 정의는 되어 있지만 고유이름은 없는 예외사항
+DECLARE
+    e_emps_remaining EXCEPTION;
+    PRAGMA EXCEPTION_INIT(e_emps_remaining, -02292);
+BEGIN
+    DELETE FROM departments
+    WHERE department_id =&부서번호;
+EXCEPTION --컴파일러에서 일어나는 오류는 실행자체가 안된거니까 예외처리 x
+    WHEN e_emps_remaining THEN
+    dbms_output.put_line('해당 부서에 속한 사원이 존재합니다');
+END;
+/
+
+--3)사용자 정의 예외사항 -오라클이 예외가 아니라고 인식하는것만 해야함 ex) 예금잔액이 마이너스 일때
+DECLARE
+    e_no_deptno EXCEPTION;
+    v_ex_cod NUMBER;
+    v_ex_msg VARCHAR2(1000);
+BEGIN
+    DELETE FROM departments
+    WHERE department_id =&부서번호;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        RAISE e_no_deptno;
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('정상적으로 삭제되었습니다');
+EXCEPTION  --else if가 아니고 exception으로 처리하는 이유는 쉽게 아웃풋이 하나만 나오게 하기위해
+    WHEN e_no_deptno THEN
+        DBMS_OUTPUT.PUT_LINE('해당 부서는 존재하지 않습니다');
+    WHEN OTHERS THEN --한건에 대한 조건이 위에 분명히 있어야함 if없이 else쓴적 있냐 없지
+        v_ex_cod := SQLCODE;
+        v_ex_msg := SQLERRM;
+        dbms_output.put_line(v_ex_cod);
+        dbms_output.put_line(v_ex_msg);
+END;
+/
+
+create table test_employee
+as
+ select*
+ from employees;
+ 
+ 
+--test_employee 테이블을 사용하여 특정 사원을 삭제하는 PL/SQL작성
+--입력은 치환변수로
+--해당사원이 존재하지 않습니다 출력 
+--해당사원이 존재하지 않을때..? 예외를 발생하지 않았을때 수행되는 코드 먼저 
+DECLARE
+    v_eid employees.employee_id%TYPE :=&사원번호;
+    e_emp_id EXCEPTION;
+BEGIN
+    DELETE test_employee
+    WHERE employee_id=v_eid;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+     RAISE e_emp_id;
+    END IF;
+    dbms_output.put(v_eid);
+    dbms_output.put_line('정상삭제 되었습니다');
+EXCEPTION
+    WHEN e_emp_id THEN
+    dbms_output.put(v_eid);
+    dbms_output.put_line('해당사원이 존재하지 않습니다');
+    WHEN OTHERS THEN
+    dbms_output.put_line('알수없는 에러입니다');
+END;
+ /
+--procedure 프로시저
+CREATE OR REPLACE PROCEDURE test_prodd --1번 create or replace하면 안되던 프로시저 재배치해서 사용 가능하게
+--()
+IS
+--is 다음에 declare바로 와야하는데 바로 쓰면 충돌남 그래서 공간은 살아있지만 생략하는거
+--declare : 선언부
+--지역변수, 레코드, 커서, exception
+
+BEGIN
+    dbms_output.put_line('First Procedure'); --익명블록과 다르기 때문에 얘를 실행시키려면..?
+EXCEPTION
+   --Syntax Error Completed 2번방법?
+    When no_data_found THEN
+        dbms_output.put_line('예외처리');
+    WHEN TOO_MANY_ROWS THEN
+        dbms_output.put_line('예외처리추가');
+END;
+/
+--1)블록 내부에서 호출 1
+BEGIN
+    test_prodd;
+END;
+/
+
+--2)EXECUTE 명령어 사용
+
+EXECUTE test_prodd;
+ --이름이 붙어서 재호출 가능 1번이 더 좋음 2번은 간단한 시험용 execute는 한줄만 쓸 수 있으니까
+ 
+ 
+ drop procedure test_prodd;
+
+
+--IN
+CREATE or REPLACE PROCEDURE raise_salary
+(p_eid IN NUMBER)
+IS
+
+BEGIN --실행하기 전 컴파일과정에서 오류를 발생시킴 in모드인데 매개변수를 수정하려고 해서 
+   -- p_eid :=100;
+    dbms_output.put_line(p_eid);
+    UPDATE employees
+    SET salary = salary * 1.1
+    WHERE employee_id = p_eid;
+END;
+/
+
+DECLARE
+    v_id employees.employee_id%TYPE := &사원번호;
+    v_num CONSTANT NUMBER := v_id;
+BEGIN
+    
+    RAISE_SALARY(v_id);
+    RAISE_SALARY(v_num);
+    RAISE_SALARY(v_num+100);
+    RAISE_SALARY(200);
+END;
+/
+
+--out, in out모드는 execute사용 불가
+create or replace procedure pro_plus
+    (p_x IN NUMBER,
+    p_y IN NUMBER,
+    p_result OUT NUMBER)--outmode는 왼쪽에
+IS
+    v_sum NUMBER;
+    
+BEGIN
+    DBMS_OUTPUT.PUT(p_X);
+    DBMS_OUTPUT.PUT('+'||p_y);
+    DBMS_OUTPUT.PUT_LINE('='||p_result);
+    p_result := p_x + p_y;
+    --v_sum :=p_x + p_y + p_result; --null을 연산에 쓰면 결과는 무조건 null
+    --dbms_output.put_line(v_sum);
+-- v_sum := p_result + 100; 시작이 무조건 널이기 때문에 이렇게 쓰면  result가 널일 확률이 높아지니까 왼쪽에 쓰라는거 if문으로 널인지 아닌지 구분 한 후에 사용하면 됨
+END;
+/
+DECLARE
+    v_first NUMBER :=10;
+    v_second NUMBER :=12;
+    v_result NUMBER :=100;
+BEGIN
+    dbms_output.put_line('before' || v_result);
+    pro_plus(v_first, v_second, v_result);
+    dbms_output.put_line('after' || v_result); --null  
+END;
+/
+
+--in out
+--포맷을 변경하는 경우 많이 쓴다 01012341234 => 010-1234-1234
+CREATE PROCEDURE format_phone
+(p_phone_no IN OUT varchar2)--number를 받으면 가장 왼쪽의 0이 의미가 없어지니까 varchar2로 받자
+IS
+
+
+BEGIN
+    p_phone_no := SUBSTR(p_phone_no, 1, 3)
+                 || '-' || SUBSTR(p_phone_no, 4, 4)
+                 || '-' || SUBSTR(p_phone_no, 8);
+END;
+/
+
+DECLARE
+    v_no VARCHAR2(50) := '01012341234';
+BEGIN
+    dbms_output.put_line('before'||v_no);
+    format_phone(v_no);
+    dbms_output.put_line('after'||v_no);
+END;
+/
+--문제풀자...
+--주민등록번호를 입력하면 다음과 같이 출력되도록 yedam_ju 프로시저 작성
+
+--포맷을 변경했다 -> inout 아니네 in을 쓰네...
+CREATE OR REPLACE PROCEDURE yedam_ju
+(p_ju_no IN varchar2)
+IS
+    v_result VARCHAR2(100);
+    v_gender char(1);
+    v_birth varchar2(100);
+    
+BEGIN
+    v_result := SUBSTR(p_ju_no, 1,6) || '-' ||SUBSTR(p_ju_no,7,1) ||'******';
+    --v_result := SUBSTR(p_ju_no, 1,6) || '-' ||PRAD(SUBSTR(p_ju_no,7,1),7, '*');
+    dbms_output.put_line(v_result);
+    
+    v_gender := substr(p_ju_no, 7,1);
+    
+    if  v_gender in ('1','2','5','6') then
+        v_birth := '19'||substr(p_ju_no,1,2)||'년'
+                        ||substr(p_ju_no,3,2)||'월'
+                        ||substr(p_ju_no,5,2)||'일';
+    elsif  v_gender in ('3','4','7','8') then
+        v_birth := '20'||substr(p_ju_no,1,2)||'년'
+                        ||substr(p_ju_no,3,2)||'월'
+                        ||substr(p_ju_no,5,2)||'일';                  
+    end if;
+    dbms_output.put_line(v_birth);
+END;    
+/
+EXECUTE yedam_ju('9501011667777'); 
+EXECUTE yedam_ju('1511013689977');
+
+
+/*해당 주민번호를 기준으로 실제 생년월일을 출력하는 부분 추가
+9501011667777 ->1995년 01월 01일
+1511013689977 ->2015년 11월 01일*/
+
+--7번째 숫자가 1,2/3,4
+
+/*
+2.
+사원번호를 입력할 경우
+삭제하는 TEST_PRO 프로시저를 생성하시오.
+단, 해당사원이 없는 경우 "해당사원이 없습니다." 출력
+예) EXECUTE TEST_PRO(176)
+
+
+*/
+
+
+
+create procedure test_pro
+(p_del_emp IN OUT varchar2,
+ p_eid IN employees.employee_id%TYPE)
+IS  
+    e_emp_id EXCEPTION;
+BEGIN
+    delete employees
+    where employee_id =p_eid;
+EXCEPTION
+    IF e_emp_id THEN
+    DBMS_OUTPUT.PUT_LINE('해당사원이 없습니다');
+    IF END;
+END;
+/
+EXECUTE TEST_PRO(176)
+/*
+3.
+다음과 같이 PL/SQL 블록을 실행할 경우 
+사원번호를 입력할 경우 사원의 이름(last_name)의 첫번째 글자를 제외하고는
+'*'가 출력되도록 yedam_emp 프로시저를 생성하시오.
+
+실행) EXECUTE yedam_emp(176)
+실행결과) TAYLOR -> T*****  <- 이름 크기만큼 별표(*) 출력
+*/
+
+
+
